@@ -1,0 +1,149 @@
+---
+title: "18233038_WatanabeMotohiro_PS2"
+author: "18233038_WatanabeMotohiro"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+### preparation
+
+```{r}
+library(rethinking)
+data(foxes)
+df <- foxes
+```
+
+### 5H1
+
+```{r}
+m1 <- map(
+  alist(
+    weight ~ dnorm( mu , sigma ) ,
+    mu <- a + b_area*area ,
+    a ~ dnorm(0,100),
+    b_area ~ dnorm(0,10),
+    sigma ~ dunif(0,50)
+  ) , data=df )
+
+m2 <- map(
+  alist(
+    weight ~ dnorm( mu , sigma ) ,
+    mu <- a + b_group*groupsize ,
+    a ~ dnorm(0,100),
+    b_group ~ dnorm(0,10),
+    sigma ~ dunif(0,50)
+  ) , data=df )
+
+precis(m1)
+precis(m2)
+```
+
+(fig.1)area&weight
+
+```{r}
+x.seq <- seq(from=0,to=6,by=0.025)
+mu <- link( m1 , data=list(area=x.seq) )
+mu.mean <- apply( mu , 2 , mean )
+mu.ci <- apply( mu , 2 , PI )
+plot( weight ~ area , data=df , col="blue" )
+lines( x.seq , mu.mean )
+lines( x.seq , mu.ci[1,] , lty=2 )
+lines( x.seq , mu.ci[2,] , lty=2 )
+```
+
+(fig.2)groupsize&weight
+
+```{r}
+x.seq <- seq(from=1,to=9,by=0.5)
+mu <- link( m2 , data=list(groupsize=x.seq) )
+mu.mean <- apply( mu , 2 , mean )
+mu.ci <- apply( mu , 2 , PI )
+plot( weight ~ groupsize , data=df , col="red" )
+lines( x.seq , mu.mean )
+lines( x.seq , mu.ci[1,] , lty=2 )
+lines( x.seq , mu.ci[2,] , lty=2 )
+```
+
+Groupsize is more important for predicting fox body weight than area.
+
+### 5H2
+
+```{r}
+m3 <- map(
+  alist(
+    weight ~ dnorm( mu , sigma ) ,
+    mu <- a + b_area*area + b_group*groupsize ,
+    a ~ dnorm(0,100),
+    c(b_area,b_group) ~ dnorm(0,10),
+    sigma ~ dunif(0,50)
+  ) , data=df )
+precis(m3)
+```
+
+(fig.3)groupsize fixed
+
+```{r}
+area.seq <- seq(from=1,to=6,by=0.5)
+pred.dat <- data.frame( area=area.seq , groupsize=mean(df$groupsize) )
+mu <- link( m3 , data=pred.dat )
+mu.mean <- apply( mu , 2 , mean )
+mu.ci <- apply( mu , 2 , PI )
+plot( weight ~ area , data=df , type="n" )
+lines( area.seq , mu.mean )
+lines( area.seq , mu.ci[1,] , lty=2 )
+lines( area.seq , mu.ci[2,] , lty=2 )
+```
+
+(fig.4)area fixed
+
+```{r}
+gs.seq <- seq(from=1,to=9,by=0.5)
+pred.dat <- data.frame( area=mean(df$area) , groupsize=gs.seq )
+mu <- link( m3 , data=pred.dat )
+mu.mean <- apply( mu , 2 , mean )
+mu.ci <- apply( mu , 2 , PI )
+plot( weight ~ groupsize , data=df , type="n" )
+lines( gs.seq , mu.mean )
+lines( gs.seq , mu.ci[1,] , lty=2 )
+lines( gs.seq , mu.ci[2,] , lty=2 )
+```
+
+Importance of area appeared because of collinearity with groupsize. And, importance of groupsize still is clear.
+
+### 5H3
+
+```{r}
+m4 <- map(
+  alist(
+    weight ~ dnorm( mu , sigma ) ,
+    mu <- a + b_food*avgfood + b_group*groupsize ,
+    a ~ dnorm(0,100),
+    c(b_food,b_group) ~ dnorm(0,10),
+    sigma ~ dunif(0,50)
+) , data=df )
+
+m5 <- map(
+  alist(
+    weight ~ dnorm( mu , sigma ) ,
+    mu <- a + b_food*avgfood + b_group*groupsize + b_area*area ,
+    a ~ dnorm(0,100),
+    c(b_food,b_group,b_area) ~ dnorm(0,10),
+    sigma ~ dunif(0,50)
+  ) , data=df )
+```
+
+(a)
+
+```{r}
+precis(m4)
+```
+
+Putting avgfood into model is favorable because coefficients of avgfood is estimated higher than area.
+
+(b)
+
+```{r}
+precis(m5)
+```
+
+This model may has multicollinearity problem because vast area can be thought to have much food. So, result of m5 may be biased.
